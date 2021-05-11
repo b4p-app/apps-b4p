@@ -1,0 +1,89 @@
+	include ( Style Library );
+	runtime settings[verbose] = quiet;
+
+	limit[contents] = 20; // Show at most 20 data entries
+	limit[char count] = 30; // Limit displaying contents to max 30 chars.  Add '...' if text is truncated.
+
+	define procedure( analyze column, {{ col nr, numeral }} )
+	{
+	    row 1[] = table length(Report);
+	    row 2[] = row 1[];
+	    row 3[] = row 1[];
+
+	    table copy table columns	( Table, Copy, col nr[] );
+	    table insert columns	( Copy, "Count" );
+	    len 1[] 			= table length( Copy );
+
+	    table consolidate		( Copy, 0, Count, count );
+	    table sort rows		( Copy, Count, numeric down );
+	    len 2[] 			= table length( Copy );
+
+	    count[] = 0;
+	    ratio below threshold[] = ((len 2[] / len 1[]) < 0.8);
+
+	    with table( Report, row 2[] )
+	    {
+		[Report:{Statistics, Statistics Value},row 2[]++] = {"# Repeated contents",   len 1[] - len 2[] };
+		[Report:{Statistics, Statistics Value},row 2[]++] = {"Common contents ratio", 1 - (len 2[] / len 1[]) };
+	    }
+
+	    if ( ratio below threshold[] | (len 2[] <= limit[contents]) )
+	    {
+		table process selected rows( Copy, row() <= min( len 2[], limit[contents] ), with table( Report, row 1[]++)
+		{
+		    count[]		+=[^Count];
+		    [Contents Count]	= [^Count];
+		    [Contents]		= left(literal([^0]),limit[char count]) + select if( literal([^0]){}>limit[char count]," ...","" );
+		} );
+	    }
+	
+	    if (len 2[] > limit[contents]) with table( Report, row 1[]++ )
+	    {
+		[Contents]		= select if (count[]==0, "... Highly varied contents ... :", "... Other contents ... :" );
+		[Contents Count]	= len 1[] - count[] -1; // Header not to count.
+	    }
+	    
+	    table describe ignore case	( Copy, 0, Data Nature, Lookup, Check, Description );
+
+	    count[] = table copy columns selected rows( Copy, ([Data Nature]=integer,numeric,scientific), 0, Numeric Value );
+	    values[] = [Copy:Numeric Value,..];
+	    if (count[] > 0) with table( Report, row 2[] )
+	    {
+		[Report:{Statistics, Statistics Value},row 2[]++] = {"Smallest number", min 123( values[] ) };
+		[Report:{Statistics, Statistics Value},row 2[]++] = {"Average",         average ignore blanks( values[] ) };
+		[Report:{Statistics, Statistics Value},row 2[]++] = {"Biggest number",  max 123( values[] ) };
+	    }
+
+	    table consolidate		( Copy, Data Nature, Count, sum );
+	    table sort rows		( Copy, Count, numeric down );
+	    table process		( Copy, with table( Report, row 3[]++)  [{Data Nature, Data Nature Count}] = [^{Data Nature,Count}] );
+	    
+	} // Procedure definition done.
+
+	// Main program begins here:
+
+	watch start;
+	table initialize		( Report, {{ File Name, Sheet Name, Table Length, Table Width, Header Name, Data Nature, Data Nature Count, Contents, Contents Count, Statistics, Statistics Value }} );
+	table load excel file		( Lookup, "Lookup.xlsx" );
+
+	for all parameters( search files( ".", "*.xlsx" ), file name[] ) if (file name[] <> 'Report*.xlsx')
+	{
+		for all parameters( excel list sheets( file name[] ), sheet name[] )
+		{
+		    table load excel file( Table, file name[], sheet name[] );
+		    echo		("File Name: ", file name[], "  Sheet name: ", sheet name[] );
+		    table append	( Report, {{file name[], sheet name[], table length( Table ), table max width ( Table ) }} );
+		    for all table columns( Table, 0, header[], col[] ) with table( Report, table length(Report) )
+		    {
+			echo		("    Column nr: ", col[], "   Header name: ", header[] );
+			[Header Name] 	= [^col[]];
+			analyze column	( col[] );
+		    }
+		}
+	}
+
+	table style auto width		( Report );
+	table style table		( Report, sheet, freeze rows, 1, autofilter, 0 );
+	table save excel file		( Report, Report, Report.xlsx );
+
+	echo("Finished processing.  Time (s): ", watch stop()/1000 );
