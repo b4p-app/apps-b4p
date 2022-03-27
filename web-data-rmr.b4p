@@ -1,0 +1,61 @@
+#!/usr/local/bin/b4p
+{
+
+
+// download data from the internet as HTML file
+file download overwrite	( "https://www.slickcharts.com/sp500", sp500.html);
+
+
+// load HTML file and extract table preceeded by a specific keyword or phrase
+//https://www.b4p.app/REF_Function_table_load.html
+table load (sp500, sp500.html, HTML, "Components of the S&P 500");
+
+// save table as CSV 
+table save (sp500, sp500_as_loaded_csv);
+
+// data dimensions and  density(sparcity)
+// https://www.b4p.app/REF_Features_comparison_options.html
+a[] = table min width (sp500); echo( "Table mid width: ", a[]);
+b[] = table max width (sp500); echo( "Table max width: ", b[]);
+c[] = table length (sp500 ); echo( "Table length: ", c[] );
+echo ("Table fields: max width x length: ", b[] * c[]);
+echo ("Table min and max width are equal? 100% data density? No missing data?  ", a[] = b[]);
+
+//==>  is there a table length min / max function?
+
+
+// view table different ways
+// https://www.b4p.app/REF_Function_view.html
+
+// interactive in console
+// view (sp500,here)
+
+//interactive in browser: full table to HTML
+// view (sp500, firefox)
+
+//interactive in browser: limited table with CSS
+view(sp500, firefox datatables)
+
+
+// non-interactive in console
+// https://www.b4p.app/REF_Function_table_list.html
+// table list (sp500);
+
+// table list (table, 1st row, #, last row, #, 1st col, #,  last col, #,  briefly, #)
+// # can be positive or negative using table access rules
+table list (sp500, briefly, 3);
+
+
+
+// Loading HTML files example
+// echo(new line, "Look up some Roman emperors:" );
+//   file download overwrite( "en.wikipedia.org/wiki/List_of_Roman_emperors", Emperors.html );
+//   table load( emperors, Emperors.html, HTML, 'id="The_Principate"' );
+//   table keep columns ( emperors, Name ); // Otherwise the table is too wide
+//   table list( emperors );
+// file delete silently( Emperors.html );
+
+
+exit;
+
+}
